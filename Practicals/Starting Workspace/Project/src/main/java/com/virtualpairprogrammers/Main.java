@@ -3,10 +3,11 @@ package com.virtualpairprogrammers;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -14,34 +15,35 @@ public class Main {
 
     public static void main(String[] args) {
 
-        List<String> inputData = new ArrayList<>();
-        inputData.add("Warn: Tuesday 4 September 0405");
-        inputData.add("ERROR: Tuesday 4 September 0408");
-        inputData.add("FATAL: Wednesday 5 September 1632");
-        inputData.add("ERROR: Friday 7 September 1854");
-        inputData.add("Warn: Saturday 8 September 1942");
+        //Util util = new Util();
 
         Logger.getLogger("org.apache").setLevel(Level.WARN);
 
         SparkConf conf = new SparkConf().setAppName("startingSpark").setMaster("local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
-        JavaRDD<String> sentences = sc.parallelize(inputData);
+        JavaRDD<String> initialDataRdd = sc.textFile("src/main/resources/subtitles/input.txt");
 
-        JavaRDD<String> words = sentences.flatMap( value -> Arrays.asList(value.split(" ")).iterator());
+        JavaRDD<String> strippedRdd = initialDataRdd.map( sentence -> sentence.replaceAll("[^a-zA-Z\\s]", "").toLowerCase());
 
-        JavaRDD filteredWords = words.filter( word -> word.length() > 1);
-        filteredWords.collect().forEach(System.out::println);
+        JavaRDD<String> wordsRdd = strippedRdd.flatMap( value -> Arrays.asList(value.split("\\s")).iterator());
 
-        System.out.println();
-        System.out.println("==============================================");
-        System.out.println();
+        JavaRDD<String> removeEmptyLinesRdd = wordsRdd.filter( sentence -> sentence.trim().length() > 0);
 
-        sc.parallelize(inputData)
-                .flatMap( value -> Arrays.asList(value.split(" ")).iterator())
-                .filter( word -> word.length() > 1)
-                .collect()
-                .forEach(System.out::println);
+        JavaRDD<String> filteredWordsRdd = removeEmptyLinesRdd.filter( value -> Util.isNotBoring(value));
+
+        JavaPairRDD<String, Long> pairsRdd = filteredWordsRdd.mapToPair(value -> new Tuple2<>(value, 1L));
+
+        JavaPairRDD<String, Long> sumedPairsRdd = pairsRdd.reduceByKey((value1, value2) -> value1 + value2);
+
+        JavaPairRDD<Long, String> switchedPairsRdd = sumedPairsRdd.mapToPair( tuple -> new Tuple2<Long, String> (tuple._2, tuple._1));
+
+        JavaPairRDD<Long, String> sortedPairsRdd = switchedPairsRdd.sortByKey(false);
+
+        List<Tuple2<Long, String>> samplePairsRdd = sortedPairsRdd.take(10);
+
+        samplePairsRdd.forEach( tuple -> System.out.println(tuple._2 + " has " + tuple._1 + " instances."));
+
 
         sc.close();
     }
