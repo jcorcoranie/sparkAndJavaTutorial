@@ -3,12 +3,11 @@ package com.virtualpairprogrammers;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Main {
@@ -27,22 +26,22 @@ public class Main {
         SparkConf conf = new SparkConf().setAppName("startingSpark").setMaster("local[*]");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
-        JavaRDD<String> originalLogMessages = sc.parallelize(inputData);
+        JavaRDD<String> sentences = sc.parallelize(inputData);
 
-        JavaPairRDD<String, Long> pairRDD = originalLogMessages.mapToPair( rawData -> new Tuple2<>(rawData.split(":")[0], 1L));
+        JavaRDD<String> words = sentences.flatMap( value -> Arrays.asList(value.split(" ")).iterator());
 
-        JavaPairRDD<String, Long> sumsbyKeyRdd = pairRDD.reduceByKey((value1, value2) -> value1 + value2);
-
-        sumsbyKeyRdd.foreach( tuple -> System.out.println(tuple._1 + " has " + tuple._2 + " instances."));
+        JavaRDD filteredWords = words.filter( word -> word.length() > 1);
+        filteredWords.collect().forEach(System.out::println);
 
         System.out.println();
-        System.out.println("===========================================");
+        System.out.println("==============================================");
         System.out.println();
 
         sc.parallelize(inputData)
-                .mapToPair( rawData -> new Tuple2<>(rawData.split(":")[0], 1L))
-                .reduceByKey((value1, value2) -> value1 + value2)
-                .foreach( tuple -> System.out.println(tuple._1 + " has " + tuple._2 + " instances."));
+                .flatMap( value -> Arrays.asList(value.split(" ")).iterator())
+                .filter( word -> word.length() > 1)
+                .collect()
+                .forEach(System.out::println);
 
         sc.close();
     }
