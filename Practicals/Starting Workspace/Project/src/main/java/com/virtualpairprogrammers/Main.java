@@ -19,19 +19,20 @@ public class Main {
 
         Dataset<Row> dataset = spark.read().option("header", true).csv("src/main/resources/exams/students.csv");
 
-        //dataset.show();
 
-        long numberOfRows = dataset.count();
+        //Dataset<Row> modernArtResults = dataset.filter(col("subject").equalTo("Modern Art")
+        //                                                        .and(col("year").geq(2007)));
 
-        //System.out.println(" There are " + numberOfRows + " in the dataset");
 
-        Row firstRow = dataset.first();
+        //Dataset<Row> modernArtResults = dataset.filter("subject = 'Modern Art' AND year >= 2007");
 
-        String subject = firstRow.get(2).toString();
-        String subjectAgain = firstRow.getAs("subject");
+        dataset.createOrReplaceTempView("students");
 
-        System.out.println(subject);
-        System.out.println(subjectAgain);
+        Dataset<Row> results = spark.sql("select * from students where subject ='French' and year >= 2009");
+
+
+        results.show();
+
 
         spark.close();
     }
